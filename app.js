@@ -326,7 +326,8 @@
     if (!workbook || !currentFile || !mappingSheetName) { alert('Load workbook and mapping first'); return; }
     const mode = getReplaceMode();
     if (!Array.isArray(mapping) || mapping.length === 0) { alert('No rows found in mapping sheet'); return; }
-    const pattern = filenamePatternInput.value || '';
+    // safe access: guard against missing DOM nodes
+    const pattern = (filenamePatternInput && filenamePatternInput.value) ? filenamePatternInput.value : '';
     const prefix = (filenamePrefixInput && filenamePrefixInput.value) ? String(filenamePrefixInput.value).trim() : '';
     const headerChoice = (filenameHeaderSelect && filenameHeaderSelect.value) ? decodeURIComponent(filenameHeaderSelect.value) : '';
     if (!pattern && (!prefix || !headerChoice)) { alert('Provide an output filename pattern OR a filename prefix and a column header to use for naming.'); return; }
