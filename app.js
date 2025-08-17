@@ -272,6 +272,17 @@
     return container;
   }
 
+  // helper: return the current replace mode chosen in the UI (radio inputs named "replace-mode").
+  // Falls back to 'conditional' when the control is missing.
+  function getReplaceMode() {
+    try {
+      const sel = document.querySelector('input[name="replace-mode"]:checked');
+      return (sel && sel.value) ? sel.value : 'conditional';
+    } catch (e) {
+      return 'conditional';
+    }
+  }
+
   // Preview button: validate state and show filenames in the small preview area and the previewOutput
   previewBtn.addEventListener('click', () => {
     // require workbook/mapping loaded
