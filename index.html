@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spreadsheet Creator</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Use Inter for a modern UI look -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <h1>Spreadsheet Creator</h1>
+    <p class="muted small">Create customized workbooks from a template using values from a replacement sheet.</p>
+    <section class="card">
+      <label>Select master template (.xlsx):</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="file-picker" class="primary">Choose file...</button>
+        <input id="file-input" type="file" accept=".xlsx,.xls" style="display:none" />
+        <div id="file-info" class="muted"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <label>Replacement sheet (table):</label>
+      <select id="sheet-select" class="modern-select"></select>
+      <button id="load-mapping" class="primary">Load mapping sheet</button>
+    </section>
+
+    <section class="card">
+      <label>Output filename options</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+        <input id="filename-prefix" type="text" placeholder="Prefix (e.g. emp)" style="padding:8px;border-radius:8px;" />
+        <select id="filename-header" class="modern-select">
+          <option value="">Choose column for name...</option>
+        </select>
+        <small class="muted small" style="margin-left:8px;">Choose a prefix and a column; files will be named prefix_{columnValue} and use the template extension.</small>
+      </div>
+    </section>
+
+    <section class="card">
+      <label>Mapping per-column → map each header to one or more target cells in the template</label>
+      <div class="options">
+        <label><input type="radio" name="mode" value="conditional" checked /> Replace only if mapping value exists</label>
+        <label><input type="radio" name="mode" value="force" /> Force replace even if mapping value is empty</label>
+      </div>
+
+      <div id="mapping-container"></div>
+    </section>
+
+    <section class="card actions">
+      <button id="preview">Preview filenames / mapping</button>
+      <button id="generate" class="primary">Generate duplicated workbook(s)</button>
+      <div id="filenames-preview" class="card muted small" style="margin-left:12px; padding:8px; min-width:320px; max-width:420px;"></div>
+      <div id="preview-output" class="muted"></div>
+    </section>
+
+    
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

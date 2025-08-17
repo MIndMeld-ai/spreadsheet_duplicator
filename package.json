@@ -1,0 +1,13 @@
+{
+  "name": "spreadsheet_duplicator",
+  "version": "0.1.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "serve": "npx http-server -p 8000",
+    "serve:python": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0"
+  }
+}
