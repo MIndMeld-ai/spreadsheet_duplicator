@@ -283,6 +283,24 @@
     }
   }
 
+  // helper: validate a simple A1-style cell address (e.g. A1, B12, AA100)
+  function isValidCellAddress(addr) {
+    if (!addr || typeof addr !== 'string') return false;
+    // strip absolute markers like $A$1
+    const raw = addr.replace(/\$/g, '').trim().toUpperCase();
+    // basic pattern: 1-3 letters followed by row number (no leading zero)
+    if (!/^[A-Z]{1,3}[1-9][0-9]*$/.test(raw)) return false;
+    try {
+      // also try decode_cell from SheetJS to be safe
+      if (typeof XLSX !== 'undefined' && XLSX.utils && typeof XLSX.utils.decode_cell === 'function') {
+        XLSX.utils.decode_cell(raw);
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // Preview button: validate state and show filenames in the small preview area and the previewOutput
   previewBtn.addEventListener('click', () => {
     // require workbook/mapping loaded
