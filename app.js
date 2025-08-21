@@ -26,6 +26,66 @@
   let mappingTargets = {}; // { header: [ {sheet, addr}, ... ] }
   let headerKeyMap = {}; // normalized -> original header name
 
+  // Output folder support (File System Access API)
+  let outputDirHandle = null;
+
+  async function pickOutputDir() {
+    if (!window.showDirectoryPicker) return null;
+    try {
+      const dir = await window.showDirectoryPicker();
+      outputDirHandle = dir; // store for session
+      window._outputDirHandle = dir;
+      renderOutputDirUI();
+      return dir;
+    } catch (err) {
+      console.warn('Directory picker cancelled or failed', err);
+      return null;
+    }
+  }
+
+  async function saveFileToDir(dirHandle, filename, arrayBuffer) {
+    try {
+      const fh = await dirHandle.getFileHandle(filename, { create: true });
+      const writable = await fh.createWritable();
+      // write accepts ArrayBuffer or Blob
+      await writable.write(arrayBuffer);
+      await writable.close();
+      return true;
+    } catch (err) {
+      console.warn('Failed to write file to directory', err);
+      return false;
+    }
+  }
+
+  function renderOutputDirUI() {
+    // Try to inject UI next to filename controls if present
+    try {
+      // only create once
+      if (document.getElementById('choose-output-wrap')) return;
+      const wrapTarget = filenameHeaderSelect ? filenameHeaderSelect.parentNode : null;
+      const wrap = document.createElement('div'); wrap.id = 'choose-output-wrap'; wrap.style.marginTop = '8px';
+      const label = document.createElement('div'); label.textContent = 'Output folder:'; label.className = 'small muted'; wrap.appendChild(label);
+      const row = document.createElement('div'); row.style.display = 'flex'; row.style.gap = '8px'; row.style.alignItems = 'center';
+      const btn = document.createElement('button'); btn.id = 'choose-output-btn'; btn.textContent = 'Choose output folder';
+      const name = document.createElement('span'); name.id = 'output-dir-name'; name.style.fontSize = '0.9em'; name.style.color = '#ccc'; name.textContent = outputDirHandle ? (outputDirHandle.name || 'chosen folder') : 'none';
+      const clear = document.createElement('button'); clear.id = 'clear-output-btn'; clear.textContent = 'Clear'; clear.style.display = outputDirHandle ? 'inline-block' : 'none';
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault(); const d = await pickOutputDir(); if (d) name.textContent = d.name || 'selected folder'; clear.style.display = 'inline-block';
+      });
+      clear.addEventListener('click', (e) => { e.preventDefault(); outputDirHandle = null; window._outputDirHandle = null; document.getElementById('output-dir-name').textContent = 'none'; clear.style.display = 'none'; });
+      row.appendChild(btn); row.appendChild(name); row.appendChild(clear); wrap.appendChild(row);
+      if (wrapTarget && wrapTarget.parentNode) {
+        wrapTarget.parentNode.insertBefore(wrap, wrapTarget.nextSibling);
+      } else {
+        // fallback: append to mappingContainer
+        mappingContainer.insertBefore(wrap, mappingContainer.firstChild);
+      }
+    } catch (e) { console.warn('Could not render output dir UI', e); }
+  }
+
+  // attempt to render the output UI now (if DOM elements already exist)
+  renderOutputDirUI();
+
   function reset() {
     sheetSelect.innerHTML = '';
     mappingContainer.innerHTML = '';
@@ -431,12 +491,55 @@
       const suggested = buildFilename(pattern, rowObj, i);
       console.log('Saving file:', suggested);
       // If running in Electron and we have the original template full path, write
-      // outputs into the same folder as the template. Otherwise fallback to browser download.
-      if (window.electron && currentFile && currentFile.path) {
+      // outputs into the same folder as the template. Otherwise check outputDirHandle from picker or fallback to browser download.
+      const dirHandle = outputDirHandle || window._outputDirHandle || null;
+      if (dirHandle && typeof dirHandle.getFileHandle === 'function') {
+        try {
+          // write using File System Access API
+          const arr = new Uint8Array(wbout);
+          const ok = await saveFileToDir(dirHandle, suggested, arr);
+          if (!ok) {
+            // fallback to electron or download
+            if (window.electron && currentFile && currentFile.path) {
+              try {
+                const fullPath = String(currentFile.path).replace(/\\/g, '/');
+                const dir = fullPath.replace(/\/[^\/]*$/, '').replace(/\/$/, '');
+                const outPath = dir + '/' + suggested;
+                const arr2 = new Uint8Array(wbout);
+                const writeRes = await window.electron.writeFile(outPath, arr2);
+                if (!writeRes || !writeRes.ok) console.warn('Electron writeFile failed', writeRes);
+              } catch (err) {
+                console.warn('Failed to write via Electron, falling back to download', err);
+                await browserDownloadBlob(blob, suggested);
+              }
+            } else {
+              await browserDownloadBlob(blob, suggested);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to save via File System Access API', err);
+          // fallback to electron or download
+          if (window.electron && currentFile && currentFile.path) {
+            try {
+              const fullPath = String(currentFile.path).replace(/\\/g, '/');
+              const dir = fullPath.replace(/\/[^\/]*$/, '').replace(/\/$/, '');
+              const outPath = dir + '/' + suggested;
+              const arr2 = new Uint8Array(wbout);
+              const writeRes = await window.electron.writeFile(outPath, arr2);
+              if (!writeRes || !writeRes.ok) console.warn('Electron writeFile failed', writeRes);
+            } catch (err2) {
+              console.warn('Failed to write via Electron, falling back to download', err2);
+              await browserDownloadBlob(blob, suggested);
+            }
+          } else {
+            await browserDownloadBlob(blob, suggested);
+          }
+        }
+      } else if (window.electron && currentFile && currentFile.path) {
         try {
           // derive folder by trimming the filename from the path
           const fullPath = String(currentFile.path).replace(/\\/g, '/');
-          const dir = fullPath.replace(/\/[^\/]*$/, '').replace(/\/$/, '');
+          const dir = fullPath.replace(/\/[^^\/]*$/, '').replace(/\/$/, '');
           const outPath = dir + '/' + suggested;
           const arr = new Uint8Array(wbout);
           const writeRes = await window.electron.writeFile(outPath, arr);
