@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Prototype Backend Client</title></head><body>
+<h3>Prototype Backend Client</h3>
+<p>Select template and mapping (CSV/JSON) and POST to backend.</p>
+<input id="tmpl" type="file" accept=".xlsx"/>
+<textarea id="mapping" placeholder='{"rows": [...], "targets": {...}}' style="width:100%;height:200px"></textarea>
+<button id="send">Send to server</button>
+<div id="status"></div>
+<script>
+document.getElementById('send').addEventListener('click', async ()=>{
+  const tmpl = document.getElementById('tmpl').files[0];
+  const mapping = document.getElementById('mapping').value;
+  if (!tmpl) return alert('Select template');
+  if (!mapping) return alert('Provide mapping JSON');
+  const form = new FormData();
+  form.append('template', tmpl);
+  form.append('mapping', mapping);
+  const res = await fetch('http://localhost:8000/generate', { method:'POST', body: form });
+  if (!res.ok) { document.getElementById('status').textContent = 'Server error: '+res.status; return; }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'generated.zip'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  document.getElementById('status').textContent = 'Downloaded.';
+});
+</script>
+</body></html>
