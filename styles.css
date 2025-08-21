@@ -11,6 +11,19 @@
 body { margin: 0; padding: 24px; background: linear-gradient(180deg,#071324 0%, #071b1f 100%); color: var(--text); }
 .container { max-width: 980px; margin: 32px auto; padding: 20px; }
 h1 { margin: 0 0 12px; font-weight: 700; letter-spacing: -0.02em; }
+
+/* Center the header/banner image and make it responsive */
+.site-title { display: flex; justify-content: center; }
+.site-banner {
+  display: block;
+  width: 100%;
+  max-width: 904px; /* match card content width */
+  height: auto;
+  margin: 0 auto 12px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
 .card { background: rgba(255,255,255,0.03); padding: 18px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 6px 20px rgba(2,6,23,0.6); }
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
@@ -86,6 +99,7 @@ select:focus {
   width: 100%;
   max-width: 904px; /* match card content width on desktop */
   height: auto;
+  margin: 0 auto 12px;
   object-fit: contain;
   border-radius: 8px;
 }
