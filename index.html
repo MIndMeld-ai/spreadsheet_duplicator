@@ -14,6 +14,7 @@
       <img src="./assets/banner.png" srcset="./assets/banner@2x.png 2x" alt="Spreadsheet Creator" class="site-banner" onerror="this.style.display='none'; console.warn('Banner failed to load:', this.src)" />
     </h1>
     <p class="muted small">1) Add a "Replacement values" sheet to your template. 2) Select the template and choose that replacement sheet. 3) Map columns to target cells, preview names, and generate workbooks.</p>
+    <p class="muted small" style="margin-top:6px;">Note: Some Excel-specific features (complex conditional formatting rules, external links, VBA macros, and some advanced chart objects) may not be fully preserved when generating files in the browser. For best fidelity, test with a sample and consider the desktop (Electron) build for file-system operations.</p>
     <section class="card">
       <label>Select master template (.xlsx):</label>
       <div style="display:flex;gap:8px;align-items:center;">
