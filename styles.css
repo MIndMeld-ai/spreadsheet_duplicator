@@ -44,3 +44,37 @@ button { padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,2
 .preview-list { max-height: 140px; overflow: auto; padding-right: 8px; }
 .preview-list ol { padding-left: 18px; margin: 0; }
 .preview-list li { padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,0.02); }
+
+/* Force dropdowns to use a dark theme so options are readable on Windows */
+select {
+  background: #000 !important; /* black background */
+  color: #bfbfbf !important;   /* light grey text */
+  border: 1px solid #444 !important;
+  padding: 6px 8px !important;
+}
+
+/* Ensure option list items also use dark background and grey text where supported */
+select option {
+  background: #000 !important;
+  color: #bfbfbf !important;
+}
+
+/* For Edge/IE, hide default expand styling and try to keep consistent look */
+select::-ms-expand {
+  background: transparent !important;
+  display: block;
+}
+
+/* Focus state for better accessibility */
+select:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(191,191,191,0.06) inset !important;
+}
+
+/* Also apply to dynamically created selects inside mapping target rows */
+.targets-wrap select,
+.target-row select {
+  background: #000 !important;
+  color: #bfbfbf !important;
+  border: 1px solid #444 !important;
+}
