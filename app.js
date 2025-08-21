@@ -39,6 +39,14 @@
       return dir;
     } catch (err) {
       console.warn('Directory picker cancelled or failed', err);
+      // Provide a helpful message for users who try to pick system folders (Documents/Downloads)
+      try {
+        const name = err && err.name ? err.name : null;
+        // Many browsers/OS combinations will block access to system folders; show guidance
+        alert('Could not open the selected folder. Some system-managed folders (e.g. root, Documents, Downloads) may be blocked by the browser/OS.\n\nPlease create or choose a regular subfolder (for example "SpreadsheetOutputs" inside Documents) and pick that instead.\n\nIf you need automatic saving into the template folder, consider using the desktop (Electron) build.\n\nError: ' + (name || String(err)));
+      } catch (e) {
+        /* ignore alert failures */
+      }
       return null;
     }
   }
@@ -53,6 +61,12 @@
       return true;
     } catch (err) {
       console.warn('Failed to write file to directory', err);
+      try {
+        const name = err && err.name ? err.name : null;
+        if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'InvalidModificationError') {
+          alert('Failed to save into the chosen folder. The browser or OS blocked write access to that folder.\n\nPlease choose a different folder (create a non-system subfolder) or use the desktop build to save files automatically.');
+        }
+      } catch (e) { /* ignore */ }
       return false;
     }
   }
@@ -69,11 +83,14 @@
       const btn = document.createElement('button'); btn.id = 'choose-output-btn'; btn.textContent = 'Choose output folder';
       const name = document.createElement('span'); name.id = 'output-dir-name'; name.style.fontSize = '0.9em'; name.style.color = '#ccc'; name.textContent = outputDirHandle ? (outputDirHandle.name || 'chosen folder') : 'none';
       const clear = document.createElement('button'); clear.id = 'clear-output-btn'; clear.textContent = 'Clear'; clear.style.display = outputDirHandle ? 'inline-block' : 'none';
+      // small inline hint for guidance when folder selection fails or is blocked
+      const hint = document.createElement('div'); hint.id = 'choose-output-hint'; hint.style.fontSize = '0.85em'; hint.style.color = '#bbb'; hint.style.marginTop = '6px'; hint.textContent = 'Tip: if Documents/Downloads are blocked, create a subfolder (e.g. "SpreadsheetOutputs") and choose that.';
       btn.addEventListener('click', async (e) => {
         e.preventDefault(); const d = await pickOutputDir(); if (d) name.textContent = d.name || 'selected folder'; clear.style.display = 'inline-block';
       });
       clear.addEventListener('click', (e) => { e.preventDefault(); outputDirHandle = null; window._outputDirHandle = null; document.getElementById('output-dir-name').textContent = 'none'; clear.style.display = 'none'; });
       row.appendChild(btn); row.appendChild(name); row.appendChild(clear); wrap.appendChild(row);
+      wrap.appendChild(hint);
       if (wrapTarget && wrapTarget.parentNode) {
         wrapTarget.parentNode.insertBefore(wrap, wrapTarget.nextSibling);
       } else {
