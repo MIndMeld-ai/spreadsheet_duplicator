@@ -443,12 +443,18 @@
     let count = 0;
     for (let i = 0; i < mapping.length; i++) {
       const rowObj = mapping[i];
-      const newWb = { SheetNames: [], Sheets: {} };
-      for (const name of workbook.SheetNames) {
-        if (name === mappingSheetName) continue;
-        const sheet = workbook.Sheets[name]; if (!sheet) continue;
-        const newSheet = JSON.parse(JSON.stringify(sheet));
-        // apply mappingTargets for this sheet
+
+      // Deep-clone the original workbook so we preserve workbook-level props, formulas, styles and other metadata
+      let newWb = JSON.parse(JSON.stringify(workbook));
+      // Remove the mapping (replacement) sheet from the clone so outputs don't include it
+      if (Array.isArray(newWb.SheetNames)) {
+        newWb.SheetNames = newWb.SheetNames.filter(n => n !== mappingSheetName);
+      }
+      if (newWb.Sheets && newWb.Sheets[mappingSheetName]) delete newWb.Sheets[mappingSheetName];
+
+      // apply mappings into the cloned sheets in-place
+      for (const name of newWb.SheetNames) {
+        const newSheet = newWb.Sheets[name]; if (!newSheet) continue;
         for (const h of tableHeaders) {
           const targets = mappingTargets[h] || [];
           const rawVal = rowObj[h] !== undefined ? rowObj[h] : '';
@@ -456,57 +462,41 @@
           if (mode === 'conditional' && (val === undefined || val === null || val === '')) continue;
           for (const t of targets) {
             const targetSheet = (t.sheet || '').trim();
-            // be tolerant of stray whitespace in sheet names
-            if (targetSheet !== name && targetSheet !== (name||'').trim()) { 
-              console.log('Skipping target: sheet name mismatch', { header: h, expected: name, targetSheet });
-              continue; 
-            }
+            if (targetSheet !== name && targetSheet !== (name||'').trim()) { continue; }
             const addr = (t.addr || '').toUpperCase().trim();
             if (!addr) { console.warn('Skipping mapping target with empty address', { header: h, sheet: targetSheet }); continue; }
             if (!isValidCellAddress(addr)) { console.warn('Skipping mapping target with invalid address', { header: h, addr }); continue; }
             newSheet[addr] = newSheet[addr] || {};
-            // set value and type
+            // set value and type; overwrite cell value but preserve other metadata where possible
             const num = Number(val);
             if (val !== '' && !isNaN(num) && isFinite(num)) {
-              newSheet[addr].v = num;
-              newSheet[addr].t = 'n';
+              newSheet[addr].v = num; newSheet[addr].t = 'n';
             } else {
-              newSheet[addr].v = val;
-              newSheet[addr].t = 's';
+              newSheet[addr].v = val; newSheet[addr].t = 's';
             }
+            // remove formula only when we intentionally replace a formula cell
             if (newSheet[addr].f) delete newSheet[addr].f;
-            console.log('Wrote mapping', { sheet: name, addr, header: h, value: newSheet[addr].v });
           }
         }
 
-        // update sheet range (!ref) so viewers show newly written cells
+        // Try to update sheet range (!ref) so viewers show newly written cells
         try {
           let minR = Infinity, minC = Infinity, maxR = -Infinity, maxC = -Infinity;
           Object.keys(newSheet).forEach(cell => {
             if (cell[0] === '!') return;
-            try {
-              const rc = XLSX.utils.decode_cell(cell);
-              if (rc.r < minR) minR = rc.r;
-              if (rc.r > maxR) maxR = rc.r;
-              if (rc.c < minC) minC = rc.c;
-              if (rc.c > maxC) maxC = rc.c;
-            } catch (e) { /* ignore */ }
+            try { const rc = XLSX.utils.decode_cell(cell); if (rc.r < minR) minR = rc.r; if (rc.r > maxR) maxR = rc.r; if (rc.c < minC) minC = rc.c; if (rc.c > maxC) maxC = rc.c; } catch (e) { /* ignore */ }
           });
           if (minR !== Infinity && minC !== Infinity && maxR >= 0 && maxC >= 0) {
-            const newRef = XLSX.utils.encode_range({ s: { r: minR, c: minC }, e: { r: maxR, c: maxC } });
-            newSheet['!ref'] = newRef;
-            console.log('Updated sheet !ref', { sheet: name, newRef });
+            newSheet['!ref'] = XLSX.utils.encode_range({ s: { r: minR, c: minC }, e: { r: maxR, c: maxC } });
           }
-        } catch (err) {
-          console.warn('Failed to update sheet range', err);
-        }
-
-        newWb.SheetNames.push(name); newWb.Sheets[name] = newSheet;
+        } catch (err) { console.warn('Failed to update sheet range', err); }
       }
-      const wbout = XLSX.write(newWb, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([wbout], { type: 'application/octet-stream' });
-      const suggested = buildFilename(pattern, rowObj, i);
-      console.log('Saving file:', suggested);
+
+      // Ask SheetJS to write cell styles if possible so formatting is preserved
+      const wbout = XLSX.write(newWb, { bookType: 'xlsx', type: 'array', cellStyles: true });
+       const blob = new Blob([wbout], { type: 'application/octet-stream' });
+       const suggested = buildFilename(pattern, rowObj, i);
+       console.log('Saving file:', suggested);
       // If running in Electron and we have the original template full path, write
       // outputs into the same folder as the template. Otherwise check outputDirHandle from picker or fallback to browser download.
       const dirHandle = outputDirHandle || window._outputDirHandle || null;
