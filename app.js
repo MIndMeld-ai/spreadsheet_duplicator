@@ -378,6 +378,62 @@
     }
   }
 
+  // NEW: clone a workbook while preserving SheetJS sheet/cell objects, formulas and styles
+  function cloneWorkbookWithoutMappingSheet(wb, mappingSheetName) {
+    const newWb = {};
+    // copy top-level keys except Sheets/SheetNames, we'll rebuild those
+    Object.keys(wb || {}).forEach(k => {
+      if (k === 'Sheets' || k === 'SheetNames') return;
+      // try to shallow-copy; if it's a plain object/array, deep-copy to avoid shared refs
+      try {
+        newWb[k] = JSON.parse(JSON.stringify(wb[k]));
+      } catch (e) {
+        newWb[k] = wb[k];
+      }
+    });
+    newWb.SheetNames = [];
+    newWb.Sheets = {};
+
+    const names = Array.isArray(wb.SheetNames) ? wb.SheetNames.slice() : [];
+    for (const name of names) {
+      if (name === mappingSheetName) continue; // skip mapping sheet
+      newWb.SheetNames.push(name);
+      const sheet = wb.Sheets && wb.Sheets[name];
+      if (!sheet) { newWb.Sheets[name] = sheet; continue; }
+      const newSheet = {};
+      // copy every key on the sheet. For special keys starting with '!' (e.g. !ref, !cols, !merges)
+      // do a JSON clone to preserve arrays/objects; for cell entries, shallow-copy the cell object
+      Object.keys(sheet).forEach(k => {
+        if (k[0] === '!') {
+          try {
+            newSheet[k] = JSON.parse(JSON.stringify(sheet[k]));
+          } catch (e) {
+            newSheet[k] = sheet[k];
+          }
+          return;
+        }
+        const cell = sheet[k];
+        if (cell && typeof cell === 'object') {
+          // shallow clone the cell so we don't mutate the original workbook cells.
+          const cloned = Object.assign({}, cell);
+          // ensure style objects aren't shared references
+          if (cloned.s) {
+            try {
+              cloned.s = JSON.parse(JSON.stringify(cloned.s));
+            } catch (e) {
+              // leave as-is if it can't be JSON'ed
+            }
+          }
+          newSheet[k] = cloned;
+        } else {
+          newSheet[k] = cell;
+        }
+      });
+      newWb.Sheets[name] = newSheet;
+    }
+    return newWb;
+  }
+
   // Preview button: validate state and show filenames in the small preview area and the previewOutput
   previewBtn.addEventListener('click', () => {
     // require workbook/mapping loaded
@@ -445,12 +501,8 @@
       const rowObj = mapping[i];
 
       // Deep-clone the original workbook so we preserve workbook-level props, formulas, styles and other metadata
-      let newWb = JSON.parse(JSON.stringify(workbook));
-      // Remove the mapping (replacement) sheet from the clone so outputs don't include it
-      if (Array.isArray(newWb.SheetNames)) {
-        newWb.SheetNames = newWb.SheetNames.filter(n => n !== mappingSheetName);
-      }
-      if (newWb.Sheets && newWb.Sheets[mappingSheetName]) delete newWb.Sheets[mappingSheetName];
+      // Use a targeted clone that preserves SheetJS cell objects (formulas, styles, merges, etc.)
+      let newWb = cloneWorkbookWithoutMappingSheet(workbook, mappingSheetName);
 
       // apply mappings into the cloned sheets in-place
       for (const name of newWb.SheetNames) {
